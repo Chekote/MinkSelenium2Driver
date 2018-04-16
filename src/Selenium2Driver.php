@@ -798,21 +798,8 @@ JS;
     {
         $element = $this->findElement($xpath);
 
-        if (!$element->displayed()) {
-            return false;
-        }
-
-        if (!$this->elementIsOnCanvas($element)) {
-            return false;
-        }
-
-        // this is disabled because it break compatibility with browsers that
-        // allow you to interact with elements that are not in the viewport.
-//        if (!$this->elementIsInViewport($element)) {
-//            return false;
-//        }
-
-        return true;
+        return $element->displayed() &&
+            ($this->elementIsFullyInViewport($element) || $this->elementIsPartiallyInViewport($element));
     }
 
     /**
@@ -838,6 +825,26 @@ JS;
      */
     public function getElementBoundingClientRect(Element $element) {
         return $this->executeJsOnElement($element, 'return {{ELEMENT}}.getBoundingClientRect()');
+    }
+
+    /**
+     * Gets the client bounding rectangle for the viewport.
+     *
+     * The client bounding rectangle is an associative array that specifies the
+     * top, bottom, left, and right coords of the viewport relative to the
+     * viewport.
+     *
+     * @return array   The client bounding rect. Contains top, bottom, left and right keys.
+     */
+    public function getViewportBoundingClientRect() {
+        $windowSize = $this->getWindowSize();
+
+        return array(
+            'top' => 0,
+            'bottom' => $windowSize['height'],
+            'left' => 0,
+            'right' => $windowSize['width']
+        );
     }
 
     /**
@@ -884,7 +891,7 @@ JS;
      * @return bool   True if the XPath is completely within the viewport. False if not.
      */
     public function xpathIsInViewport($xpath) {
-        return $this->elementIsInViewport($this->findElement($xpath));
+        return $this->elementIsFullyInViewport($this->findElement($xpath));
     }
 
     /**
@@ -893,20 +900,68 @@ JS;
      * @param  Element $element the Element to check.
      * @return bool    True if the Element is completely within the viewport. False if not.
      */
-    public function elementIsInViewport(Element $element) {
-        $bounds = $this->getElementBoundingClientRect($element);
-        $viewport = $this->getWindowSize();
+    public function elementIsFullyInViewport(Element $element) {
+        $elementBounds = $this->getElementBoundingClientRect($element);
+        $viewportBounds = $this->getViewportBoundingClientRect();
 
-        if (
-            $bounds['left'] < 0 ||
-            $bounds['top'] < 0 ||
-            $bounds['right'] > $viewport['width'] ||
-            $bounds['bottom'] > $viewport['height']
-        ) {
-            return false;
-        }
+        return $elementBounds['left'] >= $viewportBounds['left'] &&
+            $elementBounds['top'] >= $viewportBounds['top'] &&
+            $elementBounds['right'] <= $viewportBounds['right'] &&
+            $elementBounds['bottom'] <= $viewportBounds['bottom'];
+    }
 
-        return true;
+    /**
+     * Determines whether the Element is partially (but not completely) within the viewport.
+     *
+     * @param  Element $element the Element to check.
+     * @return bool    True if the Element is completely within the viewport. False if not.
+     */
+    public function elementIsPartiallyInViewport(Element $element) {
+        $elementBounds = $this->getElementBoundingClientRect($element);
+        $viewportBounds = $this->getViewportBoundingClientRect();
+
+        return !$this->elementIsFullyInViewport($element) && $this->twoDimensionalIntersect(
+                $elementBounds['left'],
+                $elementBounds['right'] - 1,
+                $elementBounds['top'],
+                $elementBounds['bottom'] - 1,
+                $viewportBounds['left'],
+                $viewportBounds['right'] - 1,
+                $viewportBounds['top'],
+                $viewportBounds['bottom'] - 1
+            );
+    }
+
+    /**
+     * Determines if two one dimensional vectors intersect.
+     *
+     * @see    https://stackoverflow.com/a/20925869
+     * @param  double $x1Min the start of the first vector
+     * @param  double $x1Max the end of the first vector
+     * @param  double $x2Min the start of the second vector
+     * @param  double $x2Max the end of the second vector
+     * @return bool   true if the vectors intersect. false if not.
+     */
+    protected  function oneDimensionalIntersect($x1Min, $x1Max, $x2Min, $x2Max) {
+        return $x1Max >= $x2Min && $x2Max >= $x1Min;
+    }
+
+    /**
+     * Determines if two rectangles intersect.
+     *
+     * @param  double $x1Min the x coord of the left edge of the first rect
+     * @param  double $x1Max the x coord of the right edge of the first rect
+     * @param  double $y1Min the y coord of the top edge of the first rect
+     * @param  double $y1Max the y coord of the bottom edge of the first rect
+     * @param  double $x2Min the x coord of the left edge of the second rect
+     * @param  double $x2Max the x coord of the right edge of the second rect
+     * @param  double $y2Min the y coord of the top edge of the second rect
+     * @param  double $y2Max the y coord of the bottom edge of the second rect
+     * @return bool   true if the vectors intersect. false if not.
+     */
+    protected function twoDimensionalIntersect($x1Min, $x1Max, $y1Min, $y1Max, $x2Min, $x2Max, $y2Min, $y2Max) {
+        return $this->oneDimensionalIntersect($x1Min, $x1Max, $x2Min, $x2Max) &&
+            $this->oneDimensionalIntersect($y1Min, $y1Max, $y2Min, $y2Max);
     }
 
     /**
