@@ -796,6 +796,40 @@ JS;
     }
 
     /**
+     * Move the mouse by an offset of the specified element.
+     *
+     * If no element is specified, the move is relative to the current mouse cursor. If an element is provided but no
+     * offset, the mouse will be moved to the center of the element. If the element is not visible, it will be scrolled
+     * into view.
+     *
+     * @param  string|null     $xpath   xpath of the element to move to. If not specified or is null, the offset is
+     *                                  relative to current position of the mouse.
+     * @param  int|null        $xoffset X offset to move to, relative to the top-left corner of the element.
+     *                                  If not specified, the mouse will move to the middle of the element.
+     * @param  int|null        $yoffset Y offset to move to, relative to the top-left corner of the element.
+     *                                  If not specified, the mouse will move to the middle of the element.
+     * @throws DriverException When the operation cannot be done
+     */
+    public function moveTo($xpath = null, $xoffset = null, $yoffset = null)
+    {
+        $jsonCoordinates = array();
+
+        if ($xpath !== null) {
+            $jsonCoordinates['element'] = $this->findElement($xpath)->getID();
+        }
+
+        if ($xoffset != null) {
+            $jsonCoordinates['xoffset'] = $xoffset;
+        }
+
+        if ($yoffset != null) {
+            $jsonCoordinates['yoffset'] = $yoffset;
+        }
+
+        $this->wdSession->moveto($jsonCoordinates);
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function focus($xpath)
