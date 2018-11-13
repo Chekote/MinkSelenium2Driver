@@ -1323,7 +1323,8 @@ JS;
      * Gets the dimensions of an element by its XPath.
      *
      * @param  string $xpath the XPath to check.
-     * @return array  The client bounding rect.
+     * @return array Element dimensions contains
+     *    top, bottom, left, right, scrollLeft, scrollTop, scrollWidth, scrollHeight, zIndex, position keys
      */
     public function getXpathElementDimensions($xpath)
     {
@@ -1333,8 +1334,9 @@ JS;
     /**
      * Gets the dimensions of an Element.
      *
-     * @param  Element $element the Element to check.
-     * @return array   The client bounding rect. Contains top, bottom, left and right keys.
+     * @param Element $element the Element to check.
+     * @return array Element dimensions contains
+     *    top, bottom, left, right, scrollLeft, scrollTop, scrollWidth, scrollHeight, zIndex, position keys
      */
     public function getElementDimensions(Element $element)
     {
@@ -1343,15 +1345,15 @@ JS;
 
 var Element = {{ELEMENT}};
 
-var BoundingClientRect = Element.getBoundingClientRect();
-BoundingClientRect.scrollLeft = Element.scrollLeft;
-BoundingClientRect.scrollTop = Element.scrollTop;
-BoundingClientRect.scrollWidth = Element.scrollWidth;
-BoundingClientRect.scrollHeight = Element.scrollHeight;
-BoundingClientRect.zIndex = Element.style.zIndex;
-BoundingClientRect.position = Element.style.position;
+var ElementDimensions = Element.getBoundingClientRect();
+ElementDimensions.scrollLeft = Element.scrollLeft;
+ElementDimensions.scrollTop = Element.scrollTop;
+ElementDimensions.scrollWidth = Element.scrollWidth;
+ElementDimensions.scrollHeight = Element.scrollHeight;
+ElementDimensions.zIndex = Element.style.zIndex;
+ElementDimensions.position = Element.style.position;
 
-return BoundingClientRect;
+return ElementDimensions;
 
 JS;
 
