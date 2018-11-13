@@ -1318,4 +1318,43 @@ JS;
             throw new DriverException(sprintf($message, $action, $xpath, $type));
         }
     }
+
+    /**
+     * Gets the dimensions of an element by its XPath.
+     *
+     * @param  string $xpath the XPath to check.
+     * @return array  The client bounding rect.
+     */
+    public function getXpathElementDimensions($xpath)
+    {
+        return $this->getElementDimensions($this->findElement($xpath));
+    }
+
+    /**
+     * Gets the dimensions of an Element.
+     *
+     * @param  Element $element the Element to check.
+     * @return array   The client bounding rect. Contains top, bottom, left and right keys.
+     */
+    public function getElementDimensions(Element $element)
+    {
+
+        $JScript = <<<JS
+
+var Element = {{ELEMENT}};
+
+var BoundingClientRect = Element.getBoundingClientRect();
+BoundingClientRect.scrollLeft = Element.scrollLeft;
+BoundingClientRect.scrollTop = Element.scrollTop;
+BoundingClientRect.scrollWidth = Element.scrollWidth;
+BoundingClientRect.scrollHeight = Element.scrollHeight;
+BoundingClientRect.zIndex = Element.style.zIndex;
+BoundingClientRect.position = Element.style.position;
+
+return BoundingClientRect;
+
+JS;
+
+        return $this->executeJsOnElement($element, $JScript);
+    }
 }
