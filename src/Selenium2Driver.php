@@ -1346,10 +1346,8 @@ JS;
 var Element = {{ELEMENT}};
 
 var ElementDimensions = Element.getBoundingClientRect();
-ElementDimensions.scrollLeft = Element.scrollLeft;
-ElementDimensions.scrollTop = Element.scrollTop;
-ElementDimensions.scrollWidth = Element.scrollWidth;
-ElementDimensions.scrollHeight = Element.scrollHeight;
+ElementDimensions.clientWidth = Element.clientWidth;
+ElementDimensions.clientHeight = Element.clientHeight;
 ElementDimensions.zIndex = Element.style.zIndex;
 ElementDimensions.position = Element.style.position;
 
