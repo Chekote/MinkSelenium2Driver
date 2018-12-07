@@ -803,6 +803,19 @@ JS;
     }
 
     /**
+     * Checks whether element is displayed located by it's XPath query.
+     *
+     * @param string $xpath
+     * @return Boolean
+     */
+    public function isDisplayed($xpath)
+    {
+        $element = $this->findElement($xpath);
+
+        return $element->displayed();
+    }
+
+    /**
      * Gets the client bounding rectangle for the XPath.
      *
      * @see    getElementBoundingClientRect()
