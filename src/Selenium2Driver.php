@@ -806,7 +806,8 @@ JS;
      * Checks whether element is displayed located by it's XPath query.
      *
      * @param string $xpath
-     * @return Boolean
+     * @return bool
+     * @throws WebDriver\Exception
      */
     public function isDisplayed($xpath)
     {
