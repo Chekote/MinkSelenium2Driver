@@ -807,7 +807,7 @@ JS;
      *
      * @param string $xpath
      * @return bool
-     * @throws WebDriver\Exception
+     * @throws Exception
      */
     public function isDisplayed($xpath)
     {
