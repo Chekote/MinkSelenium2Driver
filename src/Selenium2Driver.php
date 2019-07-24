@@ -188,7 +188,7 @@ class Selenium2Driver extends CoreDriver
      *
      * @return Selenium2Driver
      */
-    protected function withSyn()
+    public function withSyn()
     {
         $hasSyn = $this->wdSession->execute(array(
             'script' => 'return typeof window["Syn"]!=="undefined" && typeof window["Syn"].trigger!=="undefined"',
@@ -245,7 +245,7 @@ class Selenium2Driver extends CoreDriver
      *
      * @return mixed
      */
-    protected function executeJsOnXpath($xpath, $script, $sync = true)
+    public function executeJsOnXpath($xpath, $script, $sync = true)
     {
         return $this->executeJsOnElement($this->findElement($xpath), $script, $sync);
     }
