@@ -1093,42 +1093,12 @@ JS;
      */
     public function dragTo($sourceXpath, $destinationXpath)
     {
-        $source      = $this->findElement($sourceXpath);
-        $destination = $this->findElement($destinationXpath);
-
-        $this->wdSession->moveto(array(
-            'element' => $source->getID()
-        ));
-
-        $script = <<<JS
-(function (element) {
-    var event = document.createEvent("HTMLEvents");
-
-    event.initEvent("dragstart", true, true);
-    event.dataTransfer = {};
-
-    element.dispatchEvent(event);
-}({{ELEMENT}}));
-JS;
-        $this->withSyn()->executeJsOnElement($source, $script);
-
+        $this->moveTo($sourceXpath);
+        $this->dispatchJSEventOnElement('dragstart', $sourceXpath);
         $this->wdSession->buttondown();
-        $this->wdSession->moveto(array(
-            'element' => $destination->getID()
-        ));
+        $this->moveTo($destinationXpath);
         $this->wdSession->buttonup();
-
-        $script = <<<JS
-(function (element) {
-    var event = document.createEvent("HTMLEvents");
-
-    event.initEvent("drop", true, true);
-    event.dataTransfer = {};
-
-    element.dispatchEvent(event);
-}({{ELEMENT}}));
-JS;
-        $this->withSyn()->executeJsOnElement($destination, $script);
+        $this->dispatchJSEventOnElement('drop', $destinationXpath);
     }
 
     /**
