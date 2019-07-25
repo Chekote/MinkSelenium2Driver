@@ -290,6 +290,7 @@ class Selenium2Driver extends CoreDriver
 (function (element) {
     var event = document.createEvent("HTMLEvents");
     event.initEvent("{$event}", true, true);
+    event.dataTransfer = {};
     element.dispatchEvent(event);
 }({{ELEMENT}}));
 JS;
@@ -1038,6 +1039,18 @@ JS;
         }
 
         $this->wdSession->moveto($jsonCoordinates);
+    }
+
+    /**
+     * Moving mouse to giving xpath locations one by one.
+     *
+     * @param  array           $xpath_list
+     * @throws DriverException Throws exception when xpath cannot be found
+     */
+    public function moveToAll(array $xpath_list) {
+        foreach ($xpath_list as $xpath) {
+            $this->moveTo($xpath);
+        }
     }
 
     /**
