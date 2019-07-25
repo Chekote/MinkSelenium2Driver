@@ -286,7 +286,6 @@ class Selenium2Driver extends CoreDriver
      */
     public function dispatchJSEventOnElement($event, $xpath)
     {
-
         $script = <<<JS
 (function (element) {
 var event = document.createEvent("HTMLEvents");
