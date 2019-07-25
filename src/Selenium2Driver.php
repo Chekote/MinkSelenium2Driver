@@ -188,7 +188,7 @@ class Selenium2Driver extends CoreDriver
      *
      * @return Selenium2Driver
      */
-    public function withSyn()
+    protected function withSyn()
     {
         $hasSyn = $this->wdSession->execute(array(
             'script' => 'return typeof window["Syn"]!=="undefined" && typeof window["Syn"].trigger!=="undefined"',
@@ -245,7 +245,7 @@ class Selenium2Driver extends CoreDriver
      *
      * @return mixed
      */
-    public function executeJsOnXpath($xpath, $script, $sync = true)
+    protected function executeJsOnXpath($xpath, $script, $sync = true)
     {
         return $this->executeJsOnElement($this->findElement($xpath), $script, $sync);
     }
@@ -276,6 +276,25 @@ class Selenium2Driver extends CoreDriver
         }
 
         return $this->wdSession->execute_async($options);
+    }
+
+    /**
+     * Execute Javascript code on element to dispatch event.
+     *
+     * @param string $event HTMLEvents
+     * @param string $xpath Xpath of the element
+     */
+    public function dispatchJSEventOnElement($event, $xpath)
+    {
+
+        $script = <<<JS
+(function (element) {
+var event = document.createEvent("HTMLEvents");
+event.initEvent("{$event}", true, true);
+element.dispatchEvent(event);
+}({{ELEMENT}}));
+JS;
+        $this->withSyn()->executeJsOnXpath($xpath, $script);
     }
 
     /**
