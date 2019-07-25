@@ -279,6 +279,25 @@ class Selenium2Driver extends CoreDriver
     }
 
     /**
+     * Execute Javascript code on element to dispatch event.
+     *
+     * @param string $event HTMLEvents
+     * @param string $xpath Xpath of the element
+     */
+    public function dispatchJSEventOnElement($event, $xpath)
+    {
+        $script = <<<JS
+(function (element) {
+    var event = document.createEvent("HTMLEvents");
+    event.initEvent("{$event}", true, true);
+    event.dataTransfer = {};
+    element.dispatchEvent(event);
+}({{ELEMENT}}));
+JS;
+        $this->withSyn()->executeJsOnXpath($xpath, $script);
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function start()
@@ -1023,6 +1042,18 @@ JS;
     }
 
     /**
+     * Moving mouse to giving xpath locations one by one.
+     *
+     * @param  array           $xpath_list
+     * @throws DriverException Throws exception when xpath cannot be found
+     */
+    public function moveToAll(array $xpath_list) {
+        foreach ($xpath_list as $xpath) {
+            $this->moveTo($xpath);
+        }
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function focus($xpath)
@@ -1075,42 +1106,12 @@ JS;
      */
     public function dragTo($sourceXpath, $destinationXpath)
     {
-        $source      = $this->findElement($sourceXpath);
-        $destination = $this->findElement($destinationXpath);
-
-        $this->wdSession->moveto(array(
-            'element' => $source->getID()
-        ));
-
-        $script = <<<JS
-(function (element) {
-    var event = document.createEvent("HTMLEvents");
-
-    event.initEvent("dragstart", true, true);
-    event.dataTransfer = {};
-
-    element.dispatchEvent(event);
-}({{ELEMENT}}));
-JS;
-        $this->withSyn()->executeJsOnElement($source, $script);
-
+        $this->moveTo($sourceXpath);
+        $this->dispatchJSEventOnElement('dragstart', $sourceXpath);
         $this->wdSession->buttondown();
-        $this->wdSession->moveto(array(
-            'element' => $destination->getID()
-        ));
+        $this->moveTo($destinationXpath);
         $this->wdSession->buttonup();
-
-        $script = <<<JS
-(function (element) {
-    var event = document.createEvent("HTMLEvents");
-
-    event.initEvent("drop", true, true);
-    event.dataTransfer = {};
-
-    element.dispatchEvent(event);
-}({{ELEMENT}}));
-JS;
-        $this->withSyn()->executeJsOnElement($destination, $script);
+        $this->dispatchJSEventOnElement('drop', $destinationXpath);
     }
 
     /**
