@@ -288,9 +288,9 @@ class Selenium2Driver extends CoreDriver
     {
         $script = <<<JS
 (function (element) {
-var event = document.createEvent("HTMLEvents");
-event.initEvent("{$event}", true, true);
-element.dispatchEvent(event);
+    var event = document.createEvent("HTMLEvents");
+    event.initEvent("{$event}", true, true);
+    element.dispatchEvent(event);
 }({{ELEMENT}}));
 JS;
         $this->withSyn()->executeJsOnXpath($xpath, $script);
