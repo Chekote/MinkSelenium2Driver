@@ -292,6 +292,25 @@ class Selenium2Driver extends CoreDriver
     }
 
     /**
+     * Execute Javascript code on element to dispatch event.
+     *
+     * @param string $event HTMLEvents
+     * @param string $xpath Xpath of the element
+     */
+    public function dispatchJSEventOnElement($event, $xpath)
+    {
+        $script = <<<JS
+(function (element) {
+    var event = document.createEvent("HTMLEvents");
+    event.initEvent("{$event}", true, true);
+    event.dataTransfer = {};
+    element.dispatchEvent(event);
+}({{ELEMENT}}));
+JS;
+        $this->withSyn()->executeJsOnXpath($xpath, $script);
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function start()
@@ -635,6 +654,20 @@ JS;
     /**
      * {@inheritdoc}
      */
+    public function getCssValue($xpath, $name)
+    {
+        $element = $this->findElement($xpath);
+
+        $script = <<<JS
+return window.getComputedStyle({{ELEMENT}}).getPropertyValue("$name");
+JS;
+
+        return $this->executeJsOnElement($element, $script);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function setValue($xpath, $value)
     {
         $element = $this->findElement($xpath);
@@ -843,7 +876,186 @@ JS;
      */
     public function isVisible($xpath)
     {
-        return $this->findElement($xpath)->displayed();
+        $element = $this->findElement($xpath);
+
+        return $element->displayed() &&
+            ($this->elementIsFullyInViewport($element) || $this->elementIsPartiallyInViewport($element));
+    }
+
+    /**
+     * Checks whether element is displayed located by it's XPath query.
+     *
+     * @param string $xpath
+     * @return bool
+     * @throws Exception
+     */
+    public function isDisplayed($xpath)
+    {
+        $element = $this->findElement($xpath);
+
+        return $element->displayed();
+    }
+
+    /**
+     * Gets the client bounding rectangle for the XPath.
+     *
+     * @see    getElementBoundingClientRect()
+     * @param  string $xpath the XPath to check.
+     * @return array  The client bounding rect.
+     */
+    public function getXpathBoundingClientRect($xpath) {
+        return $this->getElementBoundingClientRect($this->findElement($xpath));
+    }
+
+    /**
+     * Gets the client bounding rectangle for the Element.
+     *
+     * The client bounding rectangle is an associative array that specifies the
+     * top, bottom, left, and right coords of the Element relative to the
+     * viewport.
+     *
+     * @param  Element $element the Element to check.
+     * @return array   The client bounding rect. Contains top, bottom, left and right keys.
+     */
+    public function getElementBoundingClientRect(Element $element) {
+        return $this->executeJsOnElement($element, 'return {{ELEMENT}}.getBoundingClientRect()');
+    }
+
+    /**
+     * Gets the client bounding rectangle for the viewport.
+     *
+     * The client bounding rectangle is an associative array that specifies the
+     * top, bottom, left, and right coords of the viewport relative to the
+     * viewport.
+     *
+     * @return array   The client bounding rect. Contains top, bottom, left and right keys.
+     */
+    public function getViewportBoundingClientRect() {
+        $windowSize = $this->getWindowSize();
+
+        return array(
+            'top' => 0,
+            'bottom' => $windowSize['height'],
+            'left' => 0,
+            'right' => $windowSize['width']
+        );
+    }
+
+    /**
+     * Determines whether the XPath is completely on the canvas.
+     *
+     * @param  string $xpath the XPath to check.
+     * @return bool   True if the XPath is completely within the canvas. False if not.
+     */
+    public function xpathIsOnCanvas($xpath) {
+        return $this->elementIsOnCanvas($this->findElement($xpath));
+    }
+
+    /**
+     * Determines whether the Element is completely within the canvas.
+     *
+     * @param  Element $element the Element to check.
+     * @return bool    True if the Element is completely within the canvas. False if not.
+     */
+    public function elementIsOnCanvas(Element $element) {
+        $bounds = $this->getElementBoundingClientRect($element);
+
+        $scrollX = $this->evaluateScript('return window.scrollX');
+        $scrollY = $this->evaluateScript('return window.scrollY');
+
+        $pageWidth = $this->evaluateScript('return document.body.scrollWidth');
+        $pageHeight = $this->evaluateScript('return document.body.scrollHeight');
+
+        if (
+            $bounds['left'] + $scrollX < 0 ||
+            $bounds['top'] + $scrollY < 0 ||
+            $bounds['right'] + $scrollX > $pageWidth ||
+            $bounds['bottom'] + $scrollY > $pageHeight
+        ) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Determines whether the XPath is completely within the viewport.
+     *
+     * @param  string $xpath the XPath to check.
+     * @return bool   True if the XPath is completely within the viewport. False if not.
+     */
+    public function xpathIsInViewport($xpath) {
+        return $this->elementIsFullyInViewport($this->findElement($xpath));
+    }
+
+    /**
+     * Determines whether the Element is completely within the viewport.
+     *
+     * @param  Element $element the Element to check.
+     * @return bool    True if the Element is completely within the viewport. False if not.
+     */
+    public function elementIsFullyInViewport(Element $element) {
+        $elementBounds = $this->getElementBoundingClientRect($element);
+        $viewportBounds = $this->getViewportBoundingClientRect();
+
+        return $elementBounds['left'] >= $viewportBounds['left'] &&
+            $elementBounds['top'] >= $viewportBounds['top'] &&
+            $elementBounds['right'] <= $viewportBounds['right'] &&
+            $elementBounds['bottom'] <= $viewportBounds['bottom'];
+    }
+
+    /**
+     * Determines whether the Element is partially (but not completely) within the viewport.
+     *
+     * @param  Element $element the Element to check.
+     * @return bool    True if the Element is completely within the viewport. False if not.
+     */
+    public function elementIsPartiallyInViewport(Element $element) {
+        $elementBounds = $this->getElementBoundingClientRect($element);
+        $viewportBounds = $this->getViewportBoundingClientRect();
+
+        return !$this->elementIsFullyInViewport($element) && $this->twoDimensionalIntersect(
+                $elementBounds['left'],
+                $elementBounds['right'] - 1,
+                $elementBounds['top'],
+                $elementBounds['bottom'] - 1,
+                $viewportBounds['left'],
+                $viewportBounds['right'] - 1,
+                $viewportBounds['top'],
+                $viewportBounds['bottom'] - 1
+            );
+    }
+
+    /**
+     * Determines if two one dimensional vectors intersect.
+     *
+     * @see    https://stackoverflow.com/a/20925869
+     * @param  double $x1Min the start of the first vector
+     * @param  double $x1Max the end of the first vector
+     * @param  double $x2Min the start of the second vector
+     * @param  double $x2Max the end of the second vector
+     * @return bool   true if the vectors intersect. false if not.
+     */
+    protected  function oneDimensionalIntersect($x1Min, $x1Max, $x2Min, $x2Max) {
+        return $x1Max >= $x2Min && $x2Max >= $x1Min;
+    }
+
+    /**
+     * Determines if two rectangles intersect.
+     *
+     * @param  double $x1Min the x coord of the left edge of the first rect
+     * @param  double $x1Max the x coord of the right edge of the first rect
+     * @param  double $y1Min the y coord of the top edge of the first rect
+     * @param  double $y1Max the y coord of the bottom edge of the first rect
+     * @param  double $x2Min the x coord of the left edge of the second rect
+     * @param  double $x2Max the x coord of the right edge of the second rect
+     * @param  double $y2Min the y coord of the top edge of the second rect
+     * @param  double $y2Max the y coord of the bottom edge of the second rect
+     * @return bool   true if the vectors intersect. false if not.
+     */
+    protected function twoDimensionalIntersect($x1Min, $x1Max, $y1Min, $y1Max, $x2Min, $x2Max, $y2Min, $y2Max) {
+        return $this->oneDimensionalIntersect($x1Min, $x1Max, $x2Min, $x2Max) &&
+            $this->oneDimensionalIntersect($y1Min, $y1Max, $y2Min, $y2Max);
     }
 
     /**
@@ -854,6 +1066,52 @@ JS;
         $this->wdSession->moveto(array(
             'element' => $this->findElement($xpath)->getID()
         ));
+    }
+
+    /**
+     * Move the mouse by an offset of the specified element.
+     *
+     * If no element is specified, the move is relative to the current mouse cursor. If an element is provided but no
+     * offset, the mouse will be moved to the center of the element. If the element is not visible, it will be scrolled
+     * into view.
+     *
+     * @param  string|null     $xpath   xpath of the element to move to. If not specified or is null, the offset is
+     *                                  relative to current position of the mouse.
+     * @param  int|null        $xoffset X offset to move to, relative to the top-left corner of the element.
+     *                                  If not specified, the mouse will move to the middle of the element.
+     * @param  int|null        $yoffset Y offset to move to, relative to the top-left corner of the element.
+     *                                  If not specified, the mouse will move to the middle of the element.
+     * @throws DriverException When the operation cannot be done
+     */
+    public function moveTo($xpath = null, $xoffset = null, $yoffset = null)
+    {
+        $jsonCoordinates = array();
+
+        if ($xpath !== null) {
+            $jsonCoordinates['element'] = $this->findElement($xpath)->getID();
+        }
+
+        if ($xoffset != null) {
+            $jsonCoordinates['xoffset'] = $xoffset;
+        }
+
+        if ($yoffset != null) {
+            $jsonCoordinates['yoffset'] = $yoffset;
+        }
+
+        $this->wdSession->moveto($jsonCoordinates);
+    }
+
+    /**
+     * Moving mouse to giving xpath locations one by one.
+     *
+     * @param  array           $xpath_list
+     * @throws DriverException Throws exception when xpath cannot be found
+     */
+    public function moveToAll(array $xpath_list) {
+        foreach ($xpath_list as $xpath) {
+            $this->moveTo($xpath);
+        }
     }
 
     /**
@@ -904,42 +1162,12 @@ JS;
      */
     public function dragTo($sourceXpath, $destinationXpath)
     {
-        $source      = $this->findElement($sourceXpath);
-        $destination = $this->findElement($destinationXpath);
-
-        $this->wdSession->moveto(array(
-            'element' => $source->getID()
-        ));
-
-        $script = <<<JS
-(function (element) {
-    var event = document.createEvent("HTMLEvents");
-
-    event.initEvent("dragstart", true, true);
-    event.dataTransfer = {};
-
-    element.dispatchEvent(event);
-}({{ELEMENT}}));
-JS;
-        $this->withSyn()->executeJsOnElement($source, $script);
-
+        $this->moveTo($sourceXpath);
+        $this->dispatchJSEventOnElement('dragstart', $sourceXpath);
         $this->wdSession->buttondown();
-        $this->wdSession->moveto(array(
-            'element' => $destination->getID()
-        ));
+        $this->moveTo($destinationXpath);
         $this->wdSession->buttonup();
-
-        $script = <<<JS
-(function (element) {
-    var event = document.createEvent("HTMLEvents");
-
-    event.initEvent("drop", true, true);
-    event.dataTransfer = {};
-
-    element.dispatchEvent(event);
-}({{ELEMENT}}));
-JS;
-        $this->withSyn()->executeJsOnElement($destination, $script);
+        $this->dispatchJSEventOnElement('drop', $destinationXpath);
     }
 
     /**
@@ -1018,6 +1246,17 @@ JS;
     public function getWebDriverSessionId()
     {
         return $this->isStarted() ? basename($this->wdSession->getUrl()) : null;
+    }
+
+    /**
+     * Returns the size of the specified window.
+     *
+     * @param  string $name the name of the window.
+     * @return array  The window size info. Will contain at least height and width keys with integer values.
+     */
+    protected function getWindowSize($name = 'current')
+    {
+        return $this->wdSession->window($name)->getSize();
     }
 
     /**
@@ -1229,4 +1468,42 @@ JS;
         return $remotePath;
     }
 
+    /**
+     * Gets the dimensions of an element by its XPath.
+     *
+     * @param  string $xpath the XPath to check.
+     * @return array Element dimensions contains
+     *    top, bottom, left, right, scrollLeft, scrollTop, scrollWidth, scrollHeight, zIndex, position keys
+     */
+    public function getXpathElementDimensions($xpath)
+    {
+        return $this->getElementDimensions($this->findElement($xpath));
+    }
+
+    /**
+     * Gets the dimensions of an Element.
+     *
+     * @param Element $element the Element to check.
+     * @return array Element dimensions contains
+     *    top, bottom, left, right, scrollLeft, scrollTop, scrollWidth, scrollHeight, zIndex, position keys
+     */
+    public function getElementDimensions(Element $element)
+    {
+
+        $JScript = <<<JS
+
+var Element = {{ELEMENT}};
+
+var ElementDimensions = Element.getBoundingClientRect();
+ElementDimensions.clientWidth = Element.clientWidth;
+ElementDimensions.clientHeight = Element.clientHeight;
+ElementDimensions.zIndex = Element.style.zIndex;
+ElementDimensions.position = Element.style.position;
+
+return ElementDimensions;
+
+JS;
+
+        return $this->executeJsOnElement($element, $JScript);
+    }
 }
