@@ -14,6 +14,7 @@ use Behat\Mink\Exception\DriverException;
 use Behat\Mink\Selector\Xpath\Escaper;
 use WebDriver\Element;
 use WebDriver\Exception\NoSuchElement;
+use WebDriver\Exception\StaleElementReference;
 use WebDriver\Exception\UnknownCommand;
 use WebDriver\Exception\UnknownError;
 use WebDriver\Exception;
@@ -598,7 +599,7 @@ JS;
     {
         $element = $this->findElement($xpath);
         $elementName = strtolower($element->name());
-        $elementType = strtolower($element->attribute('type'));
+        $elementType = strtolower($element->attribute('type') ?: '');
 
         // Getting the value of a checkbox returns its value if selected.
         if ('input' === $elementName && 'checkbox' === $elementType) {
@@ -690,7 +691,7 @@ JS;
         }
 
         if ('input' === $elementName) {
-            $elementType = strtolower($element->attribute('type'));
+            $elementType = strtolower($element->attribute('type') ?: '');
 
             if (in_array($elementType, array('submit', 'image', 'button', 'reset'))) {
                 throw new DriverException(sprintf('Impossible to set value an element with XPath "%s" as it is not a select, textarea or textbox', $xpath));
@@ -740,7 +741,24 @@ if (document.activeElement === node) {
   document.activeElement.blur();
 }
 JS;
-        $this->executeJsOnElement($element, $script);
+
+        // In some very rare edge cases, a developer might have implemented some
+        // functionality whereby entering a specific value could cause the field
+        // to be detached from the DOM.
+        //
+        // e.g. a 2FA input field that immediately recognizes the correct value
+        // as it is typed, and causes the SPA to update the page instantly.
+        //
+        // If that happens, we will get a StaleElementReference exception when
+        // we try to execute JS on it. As such, we catch that condition here and
+        // ignore it since an element is obviously no longer focused if it is
+        // no longer attached to the page document.
+        try {
+            $this->executeJsOnElement($element, $script);
+        } catch (StaleElementReference $e) {
+            // Do nothing. The element is no longer attached to the page document
+            // and therefore is no longer focused (nor can it be blurred).
+        }
     }
 
     /**
@@ -789,7 +807,7 @@ JS;
         $element = $this->findElement($xpath);
         $tagName = strtolower($element->name());
 
-        if ('input' === $tagName && 'radio' === strtolower($element->attribute('type'))) {
+        if ('input' === $tagName && 'radio' === strtolower($element->attribute('type') ?: '')) {
             $this->selectRadioValue($element, $value);
 
             return;
@@ -1200,14 +1218,17 @@ JS;
      */
     public function wait($timeout, $condition)
     {
-        $script = "return $condition;";
+        $script = 'return (' . rtrim($condition, " \t\n\r;") . ');';
         $start = microtime(true);
         $end = $start + $timeout / 1000.0;
 
         do {
             $result = $this->wdSession->execute(array('script' => $script, 'args' => array()));
-            usleep(100000);
-        } while (microtime(true) < $end && !$result);
+            if ($result) {
+              break;
+            }
+            usleep(10000);
+        } while (microtime(true) < $end);
 
         return (bool) $result;
     }
@@ -1383,7 +1404,7 @@ JS;
      */
     private function ensureInputType(Element $element, $xpath, $type, $action)
     {
-        if ('input' !== strtolower($element->name()) || $type !== strtolower($element->attribute('type'))) {
+        if ('input' !== strtolower($element->name()) || $type !== strtolower($element->attribute('type') ?: '')) {
             $message = 'Impossible to %s the element with XPath "%s" as it is not a %s input';
 
             throw new DriverException(sprintf($message, $action, $xpath, $type));
@@ -1431,7 +1452,7 @@ JS;
         $tempFilename = tempnam('', 'WebDriverZip');
 
         $archive = new \ZipArchive();
-        $result = $archive->open($tempFilename, \ZipArchive::CREATE);
+        $result = $archive->open($tempFilename, \ZipArchive::OVERWRITE);
         if (!$result) {
           throw new DriverException('Zip archive could not be created. Error ' . $result);
         }
